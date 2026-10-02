@@ -1,0 +1,7 @@
+# The plugin's saved settings, written here by Corvus. They belong to the
+# station, not to the repository.
+config.json
+
+.DS_Store
+__pycache__/
+node_modules/

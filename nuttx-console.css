@@ -1,0 +1,25 @@
+/* NuttX Console: the plugin's own styles. Loaded into the shared document.
+
+   The console is built from the MAVLink console's own classes (console-*,
+   con-line in main.css), so it looks like it and follows the theme with it.
+   What is here only lays that out inside a plugin's container, under the
+   plugin's own class (nx-). The terminal window is a Corvus.floatWindows
+   frame with the SSH terminal's classes and needs nothing of its own. */
+
+.nx-console {
+  /* The gutter the MAVLink console's parts pad themselves by. */
+  --panel-gutter: 12px;
+  display: flex; flex-direction: column;
+  height: 100%; min-height: 0;
+}
+
+/* Edge to edge, as the MAVLink console sits in its tab: the toolbar's rule and
+   the input bar span the panel. The console scrolls its own stream, so the
+   container around it does not scroll. Only a container holding this view. */
+.plugin-container:has(> .nx-console) { padding: 0; overflow: hidden; }
+
+/* In its own tab it opens on the toolbar, as the MAVLink console does: the
+   tab already carries the name the title row would repeat. */
+.tab-panel[data-panel="plugin-nuttx-console"] > .panel-section-header { display: none; }
+
+.nx-console .console-footer { padding-bottom: 8px; }

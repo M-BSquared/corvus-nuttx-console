@@ -1,0 +1,43 @@
+# The plugin's tests, run against the current Corvus GCS. They load Corvus's
+# own scripts (src/js/ui.js, src/js/plugins.js), which CORVUS_ROOT points at.
+name: test
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: plugin
+      - uses: actions/checkout@v4
+        with:
+          repository: M-BSquared/CorvusGCS
+          path: corvus
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run the tests
+        env:
+          CORVUS_ROOT: ${{ github.workspace }}/corvus
+        # A pattern that matches nothing must not pass by running nothing.
+        run: |
+          set -e
+          found=0
+          for f in plugin/tests/*.js; do
+            [ -e "$f" ] || continue
+            found=1
+            echo "--- $f"
+            node "$f"
+          done
+          if [ "$found" -ne 1 ]; then
+            echo "no tests found in tests/" >&2
+            exit 1
+          fi
