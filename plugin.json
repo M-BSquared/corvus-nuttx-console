@@ -3,7 +3,7 @@
   "name": "NuttX Console",
   "icon": "square-terminal",
   "description": "The PX4 NuttShell (NSH) over MAVLink, as a console and in a terminal window",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "Maximilian Böck",
   "order": 15,
   "scripts": [

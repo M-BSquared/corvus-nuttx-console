@@ -1357,8 +1357,9 @@ if (window.Corvus && Corvus.plugins && typeof Corvus.plugins.register === "funct
     name: "NuttX Console",
     icon: "square-terminal",
     description: "The PX4 NuttShell (NSH) over MAVLink, as a console and in a terminal window",
-    // A shell is reached for again and again on the bench: worth a tab of its
-    // own when Settings allows plugin tabs, a card when it does not.
+    // A shell is reached for again and again on the bench: it can have a
+    // tab of its own, switched on from its gear in Settings > Plugins, and is
+    // a card under PLUGINS otherwise.
     tab: true,
     init: function (containerEl, api) { Corvus.pluginNuttx.init(containerEl, api); },
     destroy: function (containerEl) { Corvus.pluginNuttx.destroy(containerEl); },
