@@ -10,7 +10,8 @@ every builtin is there, also the ones with no button anywhere: `top`,
 
 It works like the MAVLink console, and the same shell opens in a terminal
 window too, with `top` redrawing in place and Ctrl+C to stop a running
-program.
+program. In the desktop app that is a window of its own, whose title bar
+(the system's or the Corvus bar) can be set in the plugin's settings.
 
 The full description is in the
 [Corvus guide](https://m-bsquared.github.io/CorvusGCS/guide/plugins.html#nuttx-console).
@@ -20,6 +21,10 @@ The full description is in the
 - Corvus GCS newer than 2026.10.03, the first whose backend opens the shell
   for a terminal (`/api/mavlink/shell/send`, `/api/mavlink/shell/close` and
   the `shell` topic of `/api/events`).
+- For the terminal in a window of its own and its title bar setting, a
+  Corvus GCS whose windows of their own take plugins (`Corvus.popouts`
+  says `PLUGIN_WINDOWS`). An older one opens the terminal inside the Corvus
+  window, as before.
 - A PX4 autopilot. ArduPilot has no NSH, and the plugin says so.
 
 ## Install

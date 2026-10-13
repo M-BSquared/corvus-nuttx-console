@@ -1,7 +1,7 @@
 /* NuttX Console: the plugin's own styles. Loaded into the shared document.
 
    The console is built from the MAVLink console's own classes (console-*,
-   con-line in main.css), so it looks like it and follows the theme with it.
+   con-line in panel.css), so it looks like it and follows the theme with it.
    What is here only lays that out inside a plugin's container, under the
    plugin's own class (nx-). The terminal window is a Corvus.floatWindows
    frame with the SSH terminal's classes and needs nothing of its own. */

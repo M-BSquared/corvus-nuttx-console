@@ -13,6 +13,8 @@
  *           the command line, filter, pause, copy, save, closing.
  *   PART E  the terminal window: one per shell, typing and output, and the
  *           shell kept while either view is open and closed with the last.
+ *   PART F  the window of its own in the desktop app: the app's shell
+ *           relayed to it, its title bar option.
  *
  * Run:
  *   node plugins/nuttx-console/tests/test_nuttx_console.js
@@ -166,6 +168,7 @@ Corvus.floatWindows = {
     return true;
   },
   setStatus(rec, text, tone, title) { rec.status = { text, tone, title }; },
+  placement: () => ({ left: 10, top: 20, width: 640, height: 400 }),
 };
 
 // ---- the shell topic of /api/events ---------------------------------------
@@ -740,6 +743,174 @@ function testRegisteredWithATab() {
   assert.equal(entry.tab, true, "asks for a tab of its own");
 }
 
+// ===========================================================================
+// PART F: the window of its own (the desktop app)
+// ===========================================================================
+
+// The app's windows of their own (js/popout.js), as far as the plugin uses
+// them. Installed for PART F only: before it, the plugin knows no such
+// windows and opens frames in the app, as in a browser.
+const outside = { open: new Set(), listeners: new Set(), docks: new Map(), asked: [] };
+function desktopApp() {
+  Corvus.popouts = {
+    PLUGIN_WINDOWS: true,
+    native: () => ({}),
+    canPlace: () => true,
+    opensOutside: () => true,
+    isOpen: (key) => outside.open.has(key),
+    focus(key) { outside.asked.push(["focus", key]); },
+    onChange(fn) { outside.listeners.add(fn); return () => outside.listeners.delete(fn); },
+    onDock(kind, fn) { outside.docks.set(kind, fn); },
+    openNative(spec, rect) {
+      outside.asked.push(["open", spec, rect]);
+      outside.open.add(spec.key);
+      outside.listeners.forEach((fn) => fn());
+      return true;
+    },
+  };
+}
+function windowGone(key) {
+  outside.open.delete(key);
+  outside.listeners.forEach((fn) => fn());
+}
+// The channel delivers on a later turn of the event loop, not a microtask.
+const delivered = () => new Promise((r) => setTimeout(r, 30));
+let appApi = null;
+
+async function desktopConsole(state) {
+  if (!appApi) {
+    desktopApp();
+    appApi = fakeApi();
+    nx.start(appApi);
+  }
+  const c = await openConsole(state);
+  return c;
+}
+
+async function testInTheDesktopAppTheTerminalIsAWindowOfItsOwnOnTheAppsShell() {
+  const c = await desktopConsole();
+  shellSays({ text: "\nnsh> " });
+  outside.asked.length = 0;
+  c.container.querySelectorAll(".icon-btn").find((b) => b.title === "Open the shell in a terminal window").click();
+  await settle();
+  assert.equal(frames.size, 0, "no frame in the app");
+  const [what, spec, rect] = outside.asked[0];
+  assert.equal(what, "open");
+  assert.equal(spec.key, nx.WINDOW_KEY);
+  assert.equal(spec.kind, "plugin:nuttx-console");
+  assert.equal(spec.params.title, "NuttX Console");
+  assert.equal(spec.params.bar, undefined, "the title bar Settings says");
+  assert.deepEqual(rect, { left: 10, top: 20, width: 640, height: 400 });
+  assert.equal(nx.session.viewCount(), 2, "the app holds the shell for the window");
+
+  const remote = nx.createRemote();
+  await delivered();
+  await remote.ready();
+  assert.ok(remote.raw().includes("nsh> "), "what the shell printed so far");
+  assert.equal(remote.mode().kind, "live");
+  assert.ok(remote.history().includes("ver all"), "and the commands typed before");
+
+  const got = [];
+  remote.attach({ onText: (text, replay) => got.push([text, replay]) });
+  shellSays({ text: "INFO  ready\r\n" });
+  await delivered();
+  assert.deepEqual(got, [["INFO  ready\r\n", false]], "the shell's output reaches the window");
+
+  remote.send("free\n");
+  remote.rememberCommand("free");
+  await delivered();
+  await settle();
+  assert.equal(sent(c.api).slice(-1)[0], "free\n", "what is typed there reaches the shell");
+
+  nx.destroy(c.container);
+  await settle();
+  assert.equal(closes(c.api), 0, "the console closed, the window still shows the shell");
+  windowGone(nx.WINDOW_KEY);
+  await settle();
+  assert.equal(closes(c.api), 1, "closed with the window");
+  assert.equal(nx.session.viewCount(), 0);
+  remote.stop();
+  await finish();
+}
+
+async function testAWindowAlreadyOpenComesForward() {
+  const c = await desktopConsole();
+  outside.open.add(nx.WINDOW_KEY);
+  outside.asked.length = 0;
+  assert.equal(nx.openWindow(c.api), true);
+  assert.deepEqual(outside.asked, [["focus", nx.WINDOW_KEY]]);
+  nx.destroy(c.container);
+  windowGone(nx.WINDOW_KEY);
+  await finish();
+}
+
+async function testTheWindowsTitleBarIsThePluginsOption() {
+  const c = await desktopConsole();
+  c.api.getOptions = () => ({ titleBar: "system" });
+  outside.asked.length = 0;
+  nx.openWindow(c.api);
+  assert.equal(outside.asked[0][1].params.bar, "system", "opened with it");
+
+  const remote = nx.createRemote();
+  const asked = [];
+  remote.onBar((choice) => asked.push(choice));
+  nx.optionsChanged({ titleBar: "corvus" });
+  nx.optionsChanged({ titleBar: "settings" });
+  await delivered();
+  assert.deepEqual(asked, ["corvus", ""], "and follows it while open");
+  remote.stop();
+  nx.destroy(c.container);
+  windowGone(nx.WINDOW_KEY);
+  await finish();
+}
+
+async function testTheWindowsPageDrawsTheTerminalInTheFrame() {
+  const c = await desktopConsole();
+  nx.openWindow(c.api);
+  let made = null;
+  const closers = [];
+  const bars = [];
+  terminals.length = 0;
+  const ctx = {
+    params: new URLSearchParams(""),
+    frame(opts) {
+      made = { opts, body: makeEl("div"), status: null };
+      return { body: made.body, setStatus: (text, tone) => { made.status = { text, tone }; } };
+    },
+    onClose: (fn) => closers.push(fn),
+    setTitleBar: (choice) => bars.push(choice),
+    close() {},
+  };
+  const remote = nx.popoutView(ctx);
+  assert.equal(made.opts.title, "NuttX Console");
+  assert.equal(made.opts.className, "term-win--terminal", "a terminal, frosted like the others");
+  assert.equal(made.opts.tools[0].getAttribute("aria-label"), "End this shell and open a new one");
+  await delivered();
+  await remote.ready();
+  await settle();
+  assert.equal(made.status.text, "CONNECTED");
+  assert.ok(terminals[0], "the terminal, once the app has answered");
+
+  nx.optionsChanged({ titleBar: "system" });
+  await delivered();
+  assert.deepEqual(bars, ["system"]);
+
+  closers.forEach((fn) => fn());
+  assert.equal(terminals[0].disposed, true);
+  nx.destroy(c.container);
+  windowGone(nx.WINDOW_KEY);
+  await finish();
+}
+
+function testItsOptionsOfferTheTitleBar() {
+  const opts = Corvus.plugins.options("nuttx-console");
+  const bar = opts.schema.find((o) => o.key === "titleBar");
+  assert.ok(bar, "a title bar option in its gear");
+  assert.equal(bar.type, "select");
+  assert.deepEqual(bar.choices.map((c) => c.value), ["settings", "system", "corvus"]);
+  assert.equal(opts.values.titleBar, "settings", "Settings decides unless it is set");
+}
+
 const tests = [
   testEnterSubmitsTheLineAndRemembersIt,
   testRenderCarriesTheStateItWasFor,
@@ -779,6 +950,11 @@ const tests = [
   testANewShellFromTheWindow,
   testTheWindowSaysWhyWhenThereIsNoShell,
   testRegisteredWithATab,
+  testItsOptionsOfferTheTitleBar,
+  testInTheDesktopAppTheTerminalIsAWindowOfItsOwnOnTheAppsShell,
+  testAWindowAlreadyOpenComesForward,
+  testTheWindowsTitleBarIsThePluginsOption,
+  testTheWindowsPageDrawsTheTerminalInTheFrame,
 ];
 
 (async () => {

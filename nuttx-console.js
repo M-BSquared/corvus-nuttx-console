@@ -17,13 +17,22 @@ window.Corvus = window.Corvus || {};
  *                 history. NSH's output arrives as bytes and is cut into lines
  *                 here; a program that redraws its screen, like `top`,
  *                 replaces its lines instead of adding a screen a second.
- *   the terminal  a window of its own (Corvus.floatWindows, the frame the SSH
- *                 terminals use), opened from the console's toolbar. xterm,
+ *   the terminal  a window, opened from the console's toolbar: in the
+ *                 desktop app a window of its own by default, as the SSH
+ *                 terminals get (Corvus.popouts), and a frame inside the app
+ *                 (Corvus.floatWindows) where Settings asks for that or there
+ *                 is no such window. xterm,
  *                 with the escapes drawn rather than cut out. The line is
  *                 edited here and sent on Enter, as PX4's own
  *                 Tools/mavlink_shell.py and QGroundControl do it: a packet
  *                 per keystroke would wait a round trip over a telemetry
  *                 radio, and NSH echoes the line it receives.
+ *
+ * A window of its own is another page (popout.html). It does not open a
+ * second shell: the app's page keeps the one shell and relays it, over a
+ * BroadcastChannel, to the window, which types into it from there (see the
+ * relay below). So the shell's life stays in one place, and closing the
+ * window can never end a shell the console is still showing.
  *
  * Both type into the same shell and both show what it prints. The shell is
  * opened when a PX4 autopilot is connected and one of the two is showing, and
@@ -48,7 +57,19 @@ Corvus.pluginNuttx = (function () {
   const SEND_URL = "/api/mavlink/shell/send";
   const CLOSE_URL = "/api/mavlink/shell/close";
   const SAVE_URL = "/api/console/save";
-  const WINDOW_KEY = "nsh:terminal";
+  // One key for the frame in the app and the window of its own: the app
+  // keeps a window it has under that key (js/popout.js accepts "term:").
+  const WINDOW_KEY = "term:nuttx-console";
+  const PLUGIN_ID = "nuttx-console";
+  // What the window of its own is opened as (js/popout-page.js, pluginWindow).
+  const WINDOW_KIND = "plugin:" + PLUGIN_ID;
+  // The window of its own and the app talk over this; see the relay below.
+  const CHANNEL = "corvus-nsh";
+  // How long a window of its own waits for the app before it shows the
+  // terminal anyway, waiting for the vehicle.
+  const REMOTE_WAIT_MS = 1500;
+  const TITLE = "NuttX Console";
+  const SUBTITLE = "PX4 shell over MAVLink";
   const HISTORY_MAX = 50;
   const HISTORY_SAVE_MS = 800;
   // The most the backend takes in one write; a longer paste goes in several.
@@ -1048,13 +1069,15 @@ Corvus.pluginNuttx = (function () {
    * xterm on the shell, in `host`. `status(text, tone, title)` is the window's
    * pill. Returns {fit, focus, dispose}.
    */
-  function mountTerminal(host, status) {
+  function mountTerminal(host, status, source) {
+    // The shell: this page's own, or the app's, relayed into a window of its own.
+    const shell = source || session;
     let disposed = false;
     let term = null;
     let fit = null;
-    let mode = session.mode();
+    let mode = shell.mode();
     const cleanups = [];
-    const editor = createEditor(session.history());
+    const editor = createEditor(shell.history());
     let detach = () => {};
 
     // What is on screen of the line being typed.
@@ -1124,15 +1147,15 @@ Corvus.pluginNuttx = (function () {
         } else if (fx.type === "submit") {
           // NSH echoes the line it receives; that echo replaces this copy.
           hideLine();
-          session.send(fx.line + "\n");
-          session.rememberCommand(fx.line);
+          shell.send(fx.line + "\n");
+          shell.rememberCommand(fx.line);
         } else if (fx.type === "cancel") {
           // Left on screen, marked, and a fresh prompt asked for.
           if (shown) write(cursorMove(term.cols, startCol, drawnCursor, drawnLen) + "^C");
           shown = false;
-          session.send("\n");
+          shell.send("\n");
         } else if (fx.type === "interrupt") {
-          session.send("\x03");
+          shell.send("\x03");
         } else if (fx.type === "clear") {
           hideLine();
           write("", () => { if (term && !disposed) term.clear(); });
@@ -1251,10 +1274,10 @@ Corvus.pluginNuttx = (function () {
         if (typeof unTheme === "function") cleanups.push(unTheme);
       }
 
-      showMode(session.mode(), null);
-      const sofar = session.raw();
+      showMode(shell.mode(), null);
+      const sofar = shell.raw();
       if (sofar) write(sofar);
-      detach = session.attach(view);
+      detach = shell.attach(view);
       focus();
     }
 
@@ -1280,15 +1303,241 @@ Corvus.pluginNuttx = (function () {
     };
   }
 
+  // ---- the relay: the app's shell in a window of its own --------------------
+  //
+  // The app's side holds the shell for the window while the window is there
+  // (Corvus.popouts says so, by its heartbeat), as one more view: what the
+  // shell prints goes to the window, what is typed there comes back. The
+  // window's side is a stand-in for the session that mountTerminal is happy
+  // with. A reload of the app's page finds the window again by its heartbeat
+  // and picks it up; the window is sent the whole state again.
+
+  function popouts() {
+    const po = window.Corvus && Corvus.popouts;
+    return po && po.PLUGIN_WINDOWS && typeof po.onChange === "function" ? po : null;
+  }
+
+  function openChannel() {
+    if (typeof window.BroadcastChannel !== "function") return null;
+    try {
+      const c = new window.BroadcastChannel(CHANNEL);
+      if (typeof c.unref === "function") c.unref();
+      return c;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  /** The app's side. Set up once, by start(api). */
+  const relay = {
+    api: null,
+    channel: null,
+    release: null,
+    post(msg) {
+      if (!this.channel) return;
+      try { this.channel.postMessage(Object.assign({ to: "window" }, msg)); } catch (_e) { /* gone */ }
+    },
+    state() {
+      this.post({ type: "state", mode: session.mode(), raw: session.raw(), history: session.history() });
+    },
+  };
+  const relayView = {
+    onMode: (next, previous) => relay.post({ type: "mode", mode: next, previous: previous || null }),
+    onText: (text, replay) => relay.post({ type: "text", text, replay: !!replay }),
+    onNote: (text, level) => relay.post({ type: "note", text, level: level || "" }),
+    onReset: () => relay.post({ type: "reset" }),
+  };
+
+  /** Hold the shell for the window exactly while there is one. */
+  function syncRelay() {
+    const po = popouts();
+    const want = !!(po && relay.api && relay.channel && po.isOpen(WINDOW_KEY));
+    if (want && !relay.release) {
+      relay.release = session.attach(relayView, relay.api);
+      relay.state();
+    } else if (!want && relay.release) {
+      const release = relay.release;
+      relay.release = null;
+      release();
+    }
+  }
+
+  function onAppMessage(e) {
+    const m = e && e.data;
+    if (!m || m.to !== "app") return;
+    if (m.type === "hello") {
+      if (relay.release) relay.state();
+      else syncRelay();
+    } else if (!relay.release) {
+      // Not holding the shell for a window, so nothing to type into.
+    } else if (m.type === "send" && typeof m.data === "string") {
+      session.send(m.data);
+    } else if (m.type === "remember" && typeof m.line === "string") {
+      session.rememberCommand(m.line);
+    } else if (m.type === "newShell") {
+      session.newShell();
+    }
+  }
+
+  /** The window's own title bar, from the plugin's option (see options). */
+  function barChoice(api) {
+    let v = "";
+    try { v = api && typeof api.getOptions === "function" ? (api.getOptions() || {}).titleBar : ""; } catch (_e) { v = ""; }
+    return v === "system" || v === "corvus" ? v : "";
+  }
+
+  function outSpec(api) {
+    const params = { title: TITLE, subtitle: SUBTITLE };
+    const bar = barChoice(api);
+    if (bar) params.bar = bar;
+    return { key: WINDOW_KEY, kind: WINDOW_KIND, params };
+  }
+
   /**
-   * Open the terminal window, or bring it forward. The frame is the one the
-   * SSH terminals open in: dragged by its bar, sized from its corner,
-   * maximized from the bar, put away with ×. Putting it away while the
-   * console is open leaves the shell running; with neither open, it closes.
+   * The window's side: the session as mountTerminal sees it, over the
+   * channel. `ready()` resolves once the app has sent the state (or has not
+   * answered for a while: the terminal then waits, and takes the state
+   * whenever it comes).
+   */
+  function createRemote() {
+    let mode = { kind: "loading", label: "", detail: "" };
+    let raw = "";
+    let history = [];
+    let view = null;
+    let onBar = null;
+    let resolveReady = null;
+    const ready = new Promise((r) => { resolveReady = r; });
+    const timer = setTimeout(() => resolveReady(), REMOTE_WAIT_MS);
+    const channel = openChannel();
+
+    function post(msg) {
+      if (!channel) return;
+      try { channel.postMessage(Object.assign({ to: "app" }, msg)); } catch (_e) { /* gone */ }
+    }
+
+    function tellView(method, ...args) {
+      if (!view || typeof view[method] !== "function") return;
+      try { view[method](...args); } catch (err) { console.error("NuttX terminal failed:", err); }
+    }
+
+    function receive(e) {
+      const m = e && e.data;
+      if (!m || m.to !== "window") return;
+      if (m.type === "state") {
+        const previous = mode;
+        if (m.mode && typeof m.mode === "object") mode = m.mode;
+        raw = String(m.raw || "").slice(-RAW_MAX_CHARS);
+        history = cleanHistory(m.history);
+        clearTimeout(timer);
+        resolveReady();
+        tellView("onText", raw, true);
+        tellView("onMode", mode, previous);
+      } else if (m.type === "mode" && m.mode && typeof m.mode === "object") {
+        const previous = mode;
+        mode = m.mode;
+        tellView("onMode", mode, m.previous || previous);
+      } else if (m.type === "text" && typeof m.text === "string") {
+        raw = (m.replay ? m.text : raw + m.text).slice(-RAW_MAX_CHARS);
+        tellView("onText", m.text, !!m.replay);
+      } else if (m.type === "note") {
+        tellView("onNote", String(m.text || ""), m.level || "");
+      } else if (m.type === "reset") {
+        raw = "";
+        tellView("onReset");
+      } else if (m.type === "bar" && typeof onBar === "function") {
+        onBar(m.value === "system" || m.value === "corvus" ? m.value : "");
+      }
+    }
+
+    if (channel) channel.onmessage = receive;
+    post({ type: "hello" });
+
+    return {
+      mode: () => mode,
+      raw: () => raw,
+      history: () => history.slice(),
+      attach(v) {
+        view = v;
+        return () => { if (view === v) view = null; };
+      },
+      send(data) { if (data) post({ type: "send", data: String(data) }); },
+      rememberCommand(line) { post({ type: "remember", line: String(line) }); },
+      newShell() { post({ type: "newShell" }); },
+      ready: () => ready,
+      onBar(fn) { onBar = fn; },
+      receive,
+      stop() {
+        clearTimeout(timer);
+        view = null;
+        if (channel) { try { channel.close(); } catch (_e) { /* already */ } }
+      },
+    };
+  }
+
+  function newShellButton(onClick) {
+    return Corvus.ui.iconButton("rotate-ccw", {
+      size: 13,
+      className: "icon-btn term-win-disconnect",
+      title: "New shell. Ends this one, and what runs in it",
+      ariaLabel: "End this shell and open a new one",
+      onClick,
+    });
+  }
+
+  /**
+   * The window of its own, in popout.html (js/popout-page.js, pluginWindow):
+   * the terminal on the app's shell, relayed.
+   */
+  function popoutView(ctx) {
+    const remote = createRemote();
+    let handle = null;
+    let closed = false;
+    const frame = ctx.frame({
+      title: TITLE,
+      subtitle: SUBTITLE,
+      icon: "square-terminal",
+      noun: "terminal",
+      className: "term-win--terminal",
+      bodyClass: "ssh-term",
+      closeTitle: "Close the window",
+      tools: [newShellButton(() => remote.newShell())],
+    });
+    remote.onBar((choice) => ctx.setTitleBar(choice));
+    frame.body.textContent = "Loading terminal…";
+    remote.ready().then(() => {
+      if (!closed) handle = mountTerminal(frame.body, frame.setStatus, remote);
+    });
+    ctx.onClose(() => {
+      closed = true;
+      if (handle) handle.dispose();
+      handle = null;
+      remote.stop();
+    });
+    return remote;
+  }
+
+  /**
+   * Open the terminal window, or bring it forward. In the desktop app it is
+   * a window of its own straight away, unless Settings asks for windows
+   * inside the Corvus window: then it is the frame the SSH terminals open
+   * in, dragged by its bar (and past the edge, out of the app), sized from
+   * its corner, maximized from the bar, put away with ×. Putting it away
+   * while the console is open leaves the shell running; with neither open,
+   * it closes.
+   * @param {Object} api
+   * @param {Object} [opts] {at}: where a window coming back into the app was
+   *        let go of, in the page's pixels; it opens there, as a frame
    * @returns {boolean} whether a window is showing the shell
    */
-  function openWindow(api) {
+  function openWindow(api, opts) {
+    const o = opts || {};
     const F = Corvus.floatWindows;
+    const po = popouts();
+    if (api) relay.api = api;
+    if (po && po.isOpen(WINDOW_KEY)) {
+      po.focus(WINDOW_KEY);
+      return true;
+    }
     if (!F || typeof F.open !== "function") return false;
     const existing = F.get(WINDOW_KEY);
     if (existing) {
@@ -1296,27 +1545,37 @@ Corvus.pluginNuttx = (function () {
       if (existing.nx) existing.nx.focus();
       return true;
     }
+    const canRelay = !!(po && relay.channel);
+    if (canRelay && !o.at && po.opensOutside()
+        && po.openNative(outSpec(api), F.placement(WINDOW_KEY))) {
+      return true;
+    }
     // The shell is held by the window from the moment it opens, so closing
     // the console under it does not end the shell the window shows.
     let hold = session.attach({}, api);
+    const native = !!(po && po.native());
     const rec = F.open({
       key: WINDOW_KEY,
       kind: "nsh-terminal",
-      title: "NuttX Console",
-      subtitle: "PX4 shell over MAVLink",
+      at: o.at || null,
+      title: TITLE,
+      subtitle: SUBTITLE,
       icon: "square-terminal",
       noun: "terminal",
       ariaLabel: "Terminal: NuttX Console",
       className: "term-win--terminal",
       bodyClass: "ssh-term",
       closeTitle: "Close the window",
-      tools: [Corvus.ui.iconButton("rotate-ccw", {
-        size: 13,
-        className: "icon-btn term-win-disconnect",
-        title: "New shell. Ends this one, and what runs in it",
-        ariaLabel: "End this shell and open a new one",
-        onClick: () => session.newShell(),
-      })],
+      // Out of the app: the window takes over the relay as it opens (its
+      // heartbeat), before this frame lets go of the shell.
+      onPopOut: canRelay && (!native || !po.canPlace()) ? (r) => {
+        if (po.open(outSpec(api), r.el.getBoundingClientRect())) F.close(WINDOW_KEY);
+      } : null,
+      onDragOut: canRelay ? (r, size) => po.dragOut(outSpec(api), size, {
+        hide: () => F.hideOut(r),
+        gone: () => F.close(WINDOW_KEY),
+      }) : null,
+      tools: [newShellButton(() => session.newShell())],
       onResize: (r) => { if (r.nx) r.nx.fit(); },
       onFocus: (r) => { if (r.nx) r.nx.focus(); },
       onClose: (r) => {
@@ -1333,6 +1592,30 @@ Corvus.pluginNuttx = (function () {
     return true;
   }
 
+  /**
+   * Run once at boot in the app's page: the relay, so a window of its own
+   * (also one left open over a reload of this page) gets the shell.
+   */
+  function start(api) {
+    relay.api = api;
+    const po = popouts();
+    if (!po || relay.channel) return;
+    relay.channel = openChannel();
+    if (!relay.channel) return;
+    relay.channel.onmessage = onAppMessage;
+    po.onChange(syncRelay);
+    if (typeof po.onDock === "function") {
+      po.onDock(WINDOW_KIND, (payload) => openWindow(relay.api, { at: (payload && payload.at) || null }));
+    }
+    syncRelay();
+  }
+
+  /** The plugin's options changed: a window of its own follows its title bar. */
+  function optionsChanged(values) {
+    const v = values && values.titleBar;
+    relay.post({ type: "bar", value: v === "system" || v === "corvus" ? v : "" });
+  }
+
   // ---- the plugin ------------------------------------------------------------
 
   function init(containerEl, api) {
@@ -1344,10 +1627,10 @@ Corvus.pluginNuttx = (function () {
   }
 
   return {
-    init, destroy, openWindow,
+    init, destroy, openWindow, start, popoutView, optionsChanged, createRemote,
     createEditor, readEscape, cursorMove, paintLine, createAssembler, lineLevel,
     session,
-    HISTORY_MAX, WINDOW_KEY,
+    HISTORY_MAX, WINDOW_KEY, WINDOW_KIND, CHANNEL,
   };
 })();
 
@@ -1361,6 +1644,25 @@ if (window.Corvus && Corvus.plugins && typeof Corvus.plugins.register === "funct
     // tab of its own, switched on from its gear in Settings > Plugins, and is
     // a card under PLUGINS otherwise.
     tab: true,
+    // The terminal's window of its own takes the system's title bar or the
+    // Corvus bar as Settings says, unless this says otherwise for it.
+    options: [{
+      key: "titleBar",
+      type: "select",
+      label: "Title bar of the terminal window",
+      default: "settings",
+      choices: [
+        { value: "settings", label: "As in Settings" },
+        { value: "system", label: "System title bar" },
+        { value: "corvus", label: "Corvus title bar" },
+      ],
+      hint: "For the terminal in a window of its own, in the desktop app. " +
+        "As in Settings (the default) follows Corvus title bar under " +
+        "Settings, Camera and terminal windows.",
+    }],
+    optionsChanged: function (values) { Corvus.pluginNuttx.optionsChanged(values); },
+    start: function (api) { Corvus.pluginNuttx.start(api); },
+    popout: function (ctx) { Corvus.pluginNuttx.popoutView(ctx); },
     init: function (containerEl, api) { Corvus.pluginNuttx.init(containerEl, api); },
     destroy: function (containerEl) { Corvus.pluginNuttx.destroy(containerEl); },
   });
