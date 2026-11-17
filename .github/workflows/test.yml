@@ -1,5 +1,6 @@
-# The plugin's tests, run against the current Corvus GCS. They load Corvus's
-# own scripts (src/js/ui.js, src/js/plugins.js), which CORVUS_ROOT points at.
+# The plugin's tests. The plugin is a crate of the Corvus GCS workspace, so
+# they run inside a Corvus GCS checkout with this repository at
+# plugins/nuttx-console.
 name: test
 
 on:
@@ -11,33 +12,24 @@ permissions:
   contents: read
 
 jobs:
-  frontend:
-    runs-on: ubuntu-latest
+  rust:
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-        with:
-          path: plugin
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           repository: M-BSquared/CorvusGCS
           path: corvus
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
         with:
-          node-version: '20'
+          path: corvus/plugins/nuttx-console
+      - name: Install the libraries the interface links
+        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libxkbcommon-dev libwayland-dev libx11-dev libudev-dev
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: corvus -> target
       - name: Run the tests
-        env:
-          CORVUS_ROOT: ${{ github.workspace }}/corvus
-        # A pattern that matches nothing must not pass by running nothing.
-        run: |
-          set -e
-          found=0
-          for f in plugin/tests/*.js; do
-            [ -e "$f" ] || continue
-            found=1
-            echo "--- $f"
-            node "$f"
-          done
-          if [ "$found" -ne 1 ]; then
-            echo "no tests found in tests/" >&2
-            exit 1
-          fi
+        working-directory: corvus
+        run: cargo test --locked -p corvus_plugin_nuttx_console
+      - name: Lint
+        working-directory: corvus
+        run: cargo clippy --locked -p corvus_plugin_nuttx_console --all-targets -- -D warnings

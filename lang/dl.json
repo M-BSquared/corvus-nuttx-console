@@ -1,0 +1,31 @@
+{
+  "strings": {
+    "Clear console": "Konsoln leern",
+    "CONNECTED": "VERBUNDN",
+    "Console": "Konsoln",
+    "Copied {a} lines to the clipboard.": "{a} Zeiln in die Zwischnablag kopiert.",
+    "Copy visible lines": "Sichtbare Zeiln kopiern",
+    "End the shell and what runs in it, and open a new one": "Die Shell und wos drin laft beendn und a neie aufmachn",
+    "Jump to live": "Zum aktuelln End",
+    "No shell": "Ka Shell",
+    "No vehicle connected. The shell opens when a PX4 autopilot connects.": "Ka Fahrzeug verbundn. Die Shell geht auf, sobald a PX4-Autopilot verbundn is.",
+    "NOT AVAILABLE": "NED VERFÜGBAR",
+    "NSH command (↑ history, Ctrl+C stops a program)": "NSH-Befehl (↑ Verlauf, Strg+C stoppt a Programm)",
+    "NuttX Console": "NuttX-Konsoln",
+    "OFFLINE": "OFFLINE",
+    "Pause the stream": "Ausgab anhaltn",
+    "Resume the stream": "Ausgab weidermachn",
+    "Save log to a file": "Protokoll in a Datei speichern",
+    "Send": "Sendn",
+    "Stop the running program (Ctrl+C)": "Des laufende Programm stoppn (Strg+C)",
+    "Terminal": "Terminal",
+    "The line is sent on Enter. Ctrl+C stops a running program.": "Die Zeiln wird mit Enter gsendt. Strg+C stoppt a laufends Programm.",
+    "The PX4 NuttShell (NSH) over MAVLink, as a console and as a terminal": "Die PX4-NuttShell (NSH) über MAVLink, als Konsoln und als Terminal",
+    "The Terminal view draws programs like top in place.": "Die Terminal-Ansicht zeichnet Programme wie top an Ort und Stell.",
+    "WAITING": "WARTET",
+    "Waiting for the vehicle": "Wartn aufs Fahrzeug",
+    "{a} new line": "{a} neie Zeiln",
+    "{a} new lines": "{a} neie Zeiln",
+    "{a} shell over MAVLink.": "{a}-Shell über MAVLink."
+  }
+}
