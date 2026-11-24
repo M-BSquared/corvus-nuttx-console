@@ -24,9 +24,8 @@ plugin says so.
 ## What it is
 
 A Rust crate (`corvus_plugin_nuttx_console`) built on `corvus_api`, the
-plugin API of Corvus GCS. Corvus compiles its plugins in: there is no loader
-and no JavaScript, so the plugin works the same on every platform Corvus is
-built for. The web plugin this replaces (version 1) is in the history of this
+plugin API of Corvus GCS. It is not part of the program: it is published as a shared
+library from this repository and installed from Settings, Plugins. There is no JavaScript. The web plugin this replaces (version 1) is in the history of this
 repository, up to the commit before the Rust port.
 
 - `src/model.rs`: the rules, free of the interface: the terminal's line
@@ -43,23 +42,27 @@ A Corvus GCS whose backend has the `shell` topic of `/api/events` and whose
 plugin API has `Host::events` and `corvus_api::ui::term` (newer than
 2026.11.16).
 
-## Build
+## Change it
 
-Corvus GCS carries this repository as a submodule at `plugins/nuttx-console`:
+Corvus GCS carries this repository as a submodule at `plugins/nuttx-console`, and the
+crate is a member of its workspace:
 
 ```bash
 git clone --recurse-submodules https://github.com/M-BSquared/CorvusGCS.git
+cd CorvusGCS
+./run.sh
 ```
 
-In a checkout that was cloned without it:
+Settings, Plugins then offers the copy built there. A dependency must be one
+that `Cargo.lock` of Corvus GCS already holds.
 
-```bash
-git submodule update --init plugins/nuttx-console
-```
+## Publish it
 
-Then `./run.sh` in the Corvus checkout builds and runs Corvus with the plugin.
-It is on the PLUGINS tab, and its gear under Settings, Plugins gives it a tab
-of its own.
+Commit and push to `main`. The workflow tests the plugin, builds it for the
+newest published Corvus GCS on Linux, macOS and Windows, lets that program load
+it, and attaches it to the release `corvus-<version>` of this repository, where
+Corvus GCS of that version finds it. A new version of Corvus GCS gets its build
+within hours.
 
 ## Tests
 

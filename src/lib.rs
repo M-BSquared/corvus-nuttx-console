@@ -742,8 +742,27 @@ pub fn plugin() -> Box<dyn Plugin> {
     Box::new(Nuttx::default())
 }
 
+corvus_api::export_plugin!(plugin, LANG);
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_details_the_store_lists_are_the_plugins_own() {
+        let manifest = include_str!("../Cargo.toml").replace('\r', "");
+        let i = plugin().info();
+        for (key, want) in [
+            ("name", i.name),
+            ("description", i.description),
+            ("icon", i.icon),
+            ("version", i.version),
+        ] {
+            assert!(
+                manifest.contains(&format!("\n{key} = \"{want}\"\n")),
+                "[package.metadata.corvus] says something else than the plugin for {key}"
+            );
+        }
+    }
+
     use super::*;
 
     fn texts(l: &Lines) -> Vec<&str> {
