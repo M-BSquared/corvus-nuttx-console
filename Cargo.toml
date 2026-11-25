@@ -11,16 +11,9 @@ description = "The NuttX Console plugin of Corvus GCS"
 # member of that workspace and takes its dependency versions from it.
 [dependencies]
 corvus_api = { path = "../../src/api" }
-eframe = { workspace = true }
 serde_json = { workspace = true }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 # Published as a shared library that Settings installs, not compiled into the program.
-[package.metadata.corvus]
-loadable = true
-name = "NuttX Console"
-description = "The PX4 NuttShell (NSH) over MAVLink, as a console and as a terminal"
-icon = "square-terminal"
-version = "2.1.0"

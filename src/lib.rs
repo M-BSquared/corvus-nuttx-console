@@ -38,7 +38,7 @@ mod view;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
-use eframe::egui;
+use corvus_api::egui;
 use serde_json::{json, Value};
 
 use corvus_api::net::bg::Pending;
@@ -650,7 +650,7 @@ impl Plugin for Nuttx {
             name: "NuttX Console",
             icon: "square-terminal",
             description: "The PX4 NuttShell (NSH) over MAVLink, as a console and as a terminal",
-            version: "2.1.0",
+            version: "3.0.0",
             order: 15,
             // A shell is reached for again and again on the bench: it can have
             // a tab of its own, switched on from its gear in Settings.
@@ -776,20 +776,20 @@ corvus_api::export_plugin!(plugin, LANG);
 #[cfg(test)]
 mod tests {
     #[test]
-    fn the_details_the_store_lists_are_the_plugins_own() {
-        let manifest = include_str!("../Cargo.toml").replace('\r', "");
-        let i = plugin().info();
+    fn the_manifest_says_what_the_plugin_says_of_itself() {
+        let manifest: serde_json::Value = serde_json::from_str(include_str!("../plugin.json")).expect("plugin.json");
+        let i = Nuttx::default().info();
         for (key, want) in [
+            ("id", i.id),
             ("name", i.name),
             ("description", i.description),
             ("icon", i.icon),
             ("version", i.version),
         ] {
-            assert!(
-                manifest.contains(&format!("\n{key} = \"{want}\"\n")),
-                "[package.metadata.corvus] says something else than the plugin for {key}"
-            );
+            assert_eq!(manifest[key], want, "plugin.json says something else than the plugin for {key}");
         }
+        assert_eq!(manifest["order"], i.order);
+        assert_eq!(manifest["can_tab"], i.can_tab);
     }
 
     use super::*;

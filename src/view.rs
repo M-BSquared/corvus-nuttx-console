@@ -4,7 +4,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use eframe::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
+use corvus_api::egui::{self, Color32, Pos2, Rect, Stroke, Vec2};
 
 use corvus_api::i18n::{tr, tr_fmt};
 use corvus_api::plugin::Host;

@@ -643,7 +643,7 @@ mod tests {
     fn call(s: &Station, tool: &str, command: &str, armed: bool) -> Result<Value, String> {
         use corvus_api::plugin::{bus::Bus, shapes::ShapeSet, Outbox, Plugin};
         let mut p = Nuttx::default();
-        let ctx = eframe::egui::Context::default();
+        let ctx = corvus_api::egui::Context::default();
         let server = corvus_api::net::http::Server::local(s.port);
         let state = json!({"connected": true, "armed": armed});
         let opts = json!({MCP_READ: true, MCP_RUN: true});

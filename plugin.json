@@ -1,0 +1,11 @@
+{
+  "id": "nuttx-console",
+  "name": "NuttX Console",
+  "description": "The PX4 NuttShell (NSH) over MAVLink, as a console and as a terminal",
+  "icon": "square-terminal",
+  "version": "3.0.0",
+  "order": 15,
+  "can_tab": true,
+  "min_corvus": "2026.11.94",
+  "permissions": ["shell", "vehicle.info", "ai.tools"]
+}
