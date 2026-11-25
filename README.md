@@ -59,11 +59,19 @@ that `Cargo.lock` of Corvus GCS already holds.
 
 ## Publish it
 
-Commit and push to `main`. The workflow tests the plugin, builds it for the
+Commit, then:
+
+```bash
+./release.sh
+```
+
+It runs the tests and pushes `main`. The workflow builds the plugin for the
 newest published Corvus GCS on Linux, macOS and Windows, lets that program load
-it, and attaches it to the release `corvus-<version>` of this repository, where
-Corvus GCS of that version finds it. A new version of Corvus GCS gets its build
-within hours.
+it, and attaches it to the release `abi-<sum>` of this repository, where every
+Corvus GCS with the same plugin interface finds it. A Corvus GCS with a new
+interface gets its build within hours. With nothing to push, `./release.sh`
+starts that build at once. `--watch` waits for the result, `--help` lists the
+rest.
 
 ## Tests
 
