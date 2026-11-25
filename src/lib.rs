@@ -786,7 +786,10 @@ mod tests {
             ("icon", i.icon),
             ("version", i.version),
         ] {
-            assert_eq!(manifest[key], want, "plugin.json says something else than the plugin for {key}");
+            assert_eq!(
+                manifest[key], want,
+                "plugin.json says something else than the plugin for {key}"
+            );
         }
         assert_eq!(manifest["order"], i.order);
         assert_eq!(manifest["can_tab"], i.can_tab);

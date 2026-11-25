@@ -1,32 +1,31 @@
 #!/usr/bin/env bash
-# Publishes this plugin. GitHub builds it for Linux, macOS and Windows against the newest
-# published Corvus GCS, lets that program load it and attaches it to a release of this
-# repository (.github/workflows/build.yml). Nothing built on this computer is published.
+# Publishes this plugin. GitHub builds it once, as a WebAssembly module, with the oldest Corvus
+# GCS that plugin.json names (min_corvus) or the first published one after it, lets that program
+# load it and attaches it to the release "plugin" of this repository
+# (.github/workflows/build.yml). Every later Corvus GCS takes it as it is. Nothing built on this
+# computer is published.
 #
-#   ./release.sh                        test, push main, build and publish
-#   ./release.sh --corvus v2026.11.93   build for that version of Corvus GCS as well
-#   ./release.sh --watch                wait for the build and say how it went
-#   ./release.sh --no-verify            skip the local tests
-#   ./release.sh --dry-run              say what would happen, change nothing
+#   ./release.sh                test, push main, build and publish
+#   ./release.sh --watch        wait for the build and say how it went
+#   ./release.sh --no-verify    skip the local tests
+#   ./release.sh --dry-run      say what would happen, change nothing
 #
-# With nothing new to push it starts the build again, which a new version of Corvus GCS with a
-# new plugin interface needs. Commit first. The same file lies in every plugin.
+# With nothing new to push it starts the build again, which is needed when min_corvus named a
+# version that was not published yet. Commit first. The same file lies in every plugin.
 
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 die() { echo "release.sh: $*" >&2; exit 1; }
-usage() { echo "usage: ./release.sh [--corvus TAG] [--watch] [--no-verify] [--dry-run]" >&2; exit 1; }
+usage() { echo "usage: ./release.sh [--watch] [--no-verify] [--dry-run]" >&2; exit 1; }
 
-CORVUS=""
 WATCH=0
 VERIFY=1
 DRY_RUN=0
 while (( $# )); do
     case "$1" in
         --help|-h)   sed -n '2,/^$/p' "$(basename "$0")" | sed 's/^# \{0,1\}//'; exit 0 ;;
-        --corvus)    [[ $# -ge 2 ]] || usage; CORVUS="$2"; shift ;;
         --watch)     WATCH=1 ;;
         --no-verify) VERIFY=0 ;;
         --dry-run)   DRY_RUN=1 ;;
@@ -38,6 +37,7 @@ done
 command -v gh >/dev/null || die "the GitHub CLI (gh) is needed"
 CRATE="$(sed -n 's/^name = "\(corvus_plugin_[a-z0-9_]*\)"$/\1/p' Cargo.toml | head -n 1)"
 [[ -n "$CRATE" ]] || die "Cargo.toml names no plugin crate"
+[[ -f plugin.json ]] || die "there is no plugin.json"
 REPO="$(git remote get-url origin | sed -E 's#^.*github\.com[:/]##; s#\.git$##')"
 [[ -z "$(git status --porcelain)" ]] || die "there are uncommitted changes, commit them first"
 git fetch --quiet origin main
@@ -48,7 +48,9 @@ echo "=== $CRATE -> $REPO ($AHEAD commit(s) to push) ==="
 
 if (( VERIFY )); then
     if [[ -f ../../src/api/Cargo.toml ]]; then
-        ( cd ../.. && cargo clippy --locked -p "$CRATE" --all-targets -- -D warnings && cargo test --locked -p "$CRATE" )
+        ( cd ../.. && cargo clippy --locked -p "$CRATE" --all-targets -- -D warnings \
+            && cargo clippy --locked -p "$CRATE" --target wasm32-wasip1 -- -D warnings \
+            && cargo test --locked -p "$CRATE" )
     else
         echo "--- not inside a Corvus GCS checkout: the tests run on GitHub only"
     fi
@@ -57,7 +59,6 @@ fi
 if (( DRY_RUN )); then
     if (( AHEAD )); then echo "--- dry run: would push main, which builds and publishes"
     else echo "--- dry run: would start the build and publish"; fi
-    [[ -z "$CORVUS" ]] || echo "--- dry run: for Corvus GCS $CORVUS"
     exit 0
 fi
 
@@ -65,17 +66,13 @@ newest_run() {
     gh run list --repo "$REPO" --workflow build.yml --event "$1" --limit 1 --json databaseId --jq '.[0].databaseId // 0'
 }
 
-# A push builds by itself, for the newest Corvus GCS. A build for a named version, and a build
-# with nothing new to push, are started by hand.
-if (( AHEAD )) && [[ -z "$CORVUS" ]]; then EVENT=push; else EVENT=workflow_dispatch; fi
+# A push builds by itself. A build with nothing new to push is started by hand.
+if (( AHEAD )); then EVENT=push; else EVENT=workflow_dispatch; fi
 BEFORE="$(newest_run "$EVENT")"
-if (( AHEAD )); then git push origin HEAD:main; fi
-if [[ "$EVENT" == workflow_dispatch ]]; then
-    if [[ -n "$CORVUS" ]]; then
-        gh workflow run build.yml --repo "$REPO" --ref main -f "corvus=$CORVUS"
-    else
-        gh workflow run build.yml --repo "$REPO" --ref main
-    fi
+if (( AHEAD )); then
+    git push origin HEAD:main
+else
+    gh workflow run build.yml --repo "$REPO" --ref main
 fi
 
 if (( ! WATCH )); then

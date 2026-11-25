@@ -1,21 +1,13 @@
-# Tests this plugin, builds it for the newest published Corvus GCS on every
-# system and publishes it there: Corvus GCS installs it from the releases of
-# this repository. The work is described in the workflow this one calls.
+# Tests this plugin, builds it as a WebAssembly module with the oldest Corvus GCS it names in
+# plugin.json, and publishes it to the release "plugin" of this repository, which is where
+# Corvus GCS installs it from. The work is described in the workflow this one calls.
 name: build
 
 on:
   push:
     branches: [main]
   pull_request:
-  schedule:
-    # A new version of Corvus GCS needs this plugin built again.
-    - cron: '17 */3 * * *'
   workflow_dispatch:
-    inputs:
-      corvus:
-        description: The tag of Corvus GCS to build for (the newest release when empty)
-        required: false
-        default: ''
 
 permissions:
   contents: write
@@ -25,4 +17,3 @@ jobs:
     uses: M-BSquared/CorvusGCS/.github/workflows/plugin.yml@master
     with:
       id: nuttx-console
-      corvus: ${{ inputs.corvus || '' }}
