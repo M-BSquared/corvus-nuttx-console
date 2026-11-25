@@ -26,10 +26,12 @@
     "The Terminal view draws programs like top in place.": "Die Terminal-Ansicht zeichnet Programme wie top an Ort und Stelle.",
     "Through Corvus' MCP server an AI client can run a short list of commands that only print something, such as ver, dmesg, listener or param show. It also needs Plugin tools switched on in Settings, Connections, MCP.": "Über den MCP-Server von Corvus kann ein KI-Client eine kurze Liste von Befehlen ausführen, die nur etwas ausgeben, etwa ver, dmesg, listener oder param show. Außerdem muss Plugin-Werkzeuge unter Einstellungen, Verbindungen, MCP eingeschaltet sein.",
     "Through Corvus' MCP server an AI client can run any command in the shell. You are asked before each one and see the command. It is refused while the aircraft is armed. A shell can change parameters, move actuators and reboot the autopilot past the other permissions.": "Über den MCP-Server von Corvus kann ein KI-Client jeden Befehl in der Shell ausführen. Sie werden vor jedem gefragt und sehen den Befehl. Solange das Luftfahrzeug scharf ist, wird er abgelehnt. Eine Shell kann an den anderen Rechten vorbei Parameter ändern, Aktoren bewegen und den Autopiloten neu starten.",
+    "Vehicle disconnected.": "Fahrzeug getrennt.",
     "WAITING": "WARTET",
     "Waiting for the vehicle": "Warten auf das Fahrzeug",
     "{a} new line": "{a} neue Zeile",
     "{a} new lines": "{a} neue Zeilen",
-    "{a} shell over MAVLink.": "{a}-Shell über MAVLink."
+    "{a} shell over MAVLink.": "{a}-Shell über MAVLink.",
+    "{name} shell open.": "{name}-Shell geöffnet."
   }
 }

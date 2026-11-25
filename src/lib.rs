@@ -39,6 +39,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use corvus_api::egui;
+use corvus_api::i18n::{tr, tr_fmt};
 use serde_json::{json, Value};
 
 use corvus_api::net::bg::Pending;
@@ -390,18 +391,23 @@ impl Nuttx {
         };
         // what each view says about the change
         match (self.mode.kind, previous.kind) {
-            (Kind::Live, _) => self.lines.add("success", &format!("{name} shell open."), false),
+            (Kind::Live, _) => {
+                let open = tr_fmt("{name} shell open.", &[("name", name)]);
+                self.lines.add("success", &open, false);
+            }
             (Kind::Offline, Kind::Live) => {
-                self.lines.add("warning", "Vehicle disconnected.", false);
-                self.term.note("Vehicle disconnected.");
+                let gone = tr("Vehicle disconnected.").into_owned();
+                self.lines.add("warning", &gone, false);
+                self.term.note(&gone);
             }
             (Kind::Unsupported, _) => {
-                let detail = self.mode.detail.clone();
+                let detail = tr(&self.mode.detail).into_owned();
                 self.lines.add("warning", &detail, false);
                 self.term.note(&detail);
             }
             (Kind::Offline, Kind::Loading) => {
                 let detail = self.mode.detail.clone();
+                let detail = tr(&detail).into_owned();
                 self.lines.add("info", &detail, false);
                 self.term.note(&detail);
             }
