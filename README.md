@@ -31,6 +31,7 @@ repository, up to the commit before the Rust port.
 - `src/model.rs`: the rules, free of the interface: the terminal's line
   editor, how the line is drawn after the prompt, how NSH's bytes are cut into
   lines, the history.
+- `src/mcp.rs`: the tools for an AI client, off until the gear allows them.
 - `src/lib.rs`: the shell session (when it opens and closes, what is sent and
   in which order) and the lines of the console.
 - `src/view.rs`: what is drawn.

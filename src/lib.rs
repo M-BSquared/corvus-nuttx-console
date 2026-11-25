@@ -22,6 +22,8 @@
 //! over the telemetry link for nobody. ArduPilot has no NSH, and the plugin
 //! says so instead of offering a prompt that cannot answer.
 //!
+//! An AI client may use the shell when the operator allows it in the gear ([`mcp`]).
+//!
 //! Transport, all in the backend:
 //!
 //! * `POST /api/mavlink/shell/send {data}`: typed as given
@@ -29,6 +31,7 @@
 //! * the `shell` topic of `/api/events`: the output; the first event is a
 //!   replay of what the shell printed so far
 
+pub mod mcp;
 pub mod model;
 mod view;
 
@@ -40,7 +43,8 @@ use serde_json::{json, Value};
 
 use corvus_api::net::bg::Pending;
 use corvus_api::net::stream::Stream;
-use corvus_api::plugin::{Host, Info, Plugin, Reply};
+use corvus_api::plugin::options::OptionSpec;
+use corvus_api::plugin::{Host, Info, McpTool, Plugin, Reply};
 use corvus_api::ui::term::emu::Emulator;
 
 use model::{remember, Assembler, Editor};
@@ -365,6 +369,7 @@ pub struct Nuttx {
     pub(crate) term: Term,
     pub(crate) tab: Tab,
     pub(crate) ui: view::ViewState,
+    mcp: mcp::State,
 }
 
 impl Nuttx {
@@ -645,12 +650,35 @@ impl Plugin for Nuttx {
             name: "NuttX Console",
             icon: "square-terminal",
             description: "The PX4 NuttShell (NSH) over MAVLink, as a console and as a terminal",
-            version: "2.0.0",
+            version: "2.1.0",
             order: 15,
             // A shell is reached for again and again on the bench: it can have
             // a tab of its own, switched on from its gear in Settings.
             can_tab: true,
         }
+    }
+
+    fn options(&self) -> Vec<OptionSpec> {
+        vec![
+            OptionSpec::toggle(mcp::MCP_READ, "AI clients may read from the shell", false).hint(
+                "Through Corvus' MCP server an AI client can run a short list of commands that only print something, such as ver, dmesg, listener or param show. It also needs Plugin tools switched on in Settings, Connections, MCP.",
+            ),
+            OptionSpec::toggle(mcp::MCP_RUN, "AI clients may run any command", false).hint(
+                "Through Corvus' MCP server an AI client can run any command in the shell. You are asked before each one and see the command. It is refused while the aircraft is armed. A shell can change parameters, move actuators and reboot the autopilot past the other permissions.",
+            ),
+        ]
+    }
+
+    fn mcp_tools(&self, h: &Host) -> Vec<McpTool> {
+        Self::mcp_tools_for(h)
+    }
+
+    fn mcp_call(&mut self, name: &str, args: &Value, token: u64, h: &mut Host) {
+        self.mcp_start(name, args, token, h);
+    }
+
+    fn mcp_take(&mut self, token: u64) -> Option<Result<Value, String>> {
+        self.mcp.take(token)
     }
 
     fn open(&mut self, h: &mut Host) {
@@ -688,6 +716,7 @@ impl Plugin for Nuttx {
     }
 
     fn tick(&mut self, h: &mut Host) {
+        self.mcp_run(h);
         if !self.live {
             // the close on its way out is still taken in
             if self.closing.as_ref().is_some_and(|c| c.take().is_some()) {

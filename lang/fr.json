@@ -1,5 +1,7 @@
 {
   "strings": {
+    "AI clients may read from the shell": "Les clients IA peuvent lire le shell",
+    "AI clients may run any command": "Les clients IA peuvent exécuter toute commande",
     "Clear console": "Vider la console",
     "CONNECTED": "CONNECTÉ",
     "Console": "Console",
@@ -22,6 +24,8 @@
     "The line is sent on Enter. Ctrl+C stops a running program.": "La ligne est envoyée avec Entrée. Ctrl+C arrête un programme en cours.",
     "The PX4 NuttShell (NSH) over MAVLink, as a console and as a terminal": "Le NuttShell de PX4 (NSH) via MAVLink, en console et en terminal",
     "The Terminal view draws programs like top in place.": "La vue Terminal dessine sur place des programmes comme top.",
+    "Through Corvus' MCP server an AI client can run a short list of commands that only print something, such as ver, dmesg, listener or param show. It also needs Plugin tools switched on in Settings, Connections, MCP.": "Par le serveur MCP de Corvus, un client IA peut exécuter une courte liste de commandes qui ne font qu'afficher, comme ver, dmesg, listener ou param show. Il faut aussi activer Outils des plugins dans Paramètres, Connexions, MCP.",
+    "Through Corvus' MCP server an AI client can run any command in the shell. You are asked before each one and see the command. It is refused while the aircraft is armed. A shell can change parameters, move actuators and reboot the autopilot past the other permissions.": "Par le serveur MCP de Corvus, un client IA peut exécuter toute commande dans le shell. Vous êtes consulté avant chacune et voyez la commande. Elle est refusée tant que l'aéronef est armé. Un shell peut modifier des paramètres, bouger des actionneurs et redémarrer l'autopilote en contournant les autres permissions.",
     "WAITING": "EN ATTENTE",
     "Waiting for the vehicle": "En attente du véhicule",
     "{a} new line": "{a} nouvelle ligne",

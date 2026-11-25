@@ -1,5 +1,7 @@
 {
   "strings": {
+    "AI clients may read from the shell": "KI-Glaiends dürfe aus dere Shell lesn",
+    "AI clients may run any command": "KI-Glaiends dürfe jeden Befehl ausführn",
     "Clear console": "Konsoln leern",
     "CONNECTED": "VERBUNDN",
     "Console": "Konsoln",
@@ -22,6 +24,8 @@
     "The line is sent on Enter. Ctrl+C stops a running program.": "Die Zeiln wird mit Enter gsendt. Strg+C stoppt a laufends Programm.",
     "The PX4 NuttShell (NSH) over MAVLink, as a console and as a terminal": "Die PX4-NuttShell (NSH) über MAVLink, als Konsoln und als Terminal",
     "The Terminal view draws programs like top in place.": "Die Terminal-Ansicht zeichnet Programme wie top an Ort und Stell.",
+    "Through Corvus' MCP server an AI client can run a short list of commands that only print something, such as ver, dmesg, listener or param show. It also needs Plugin tools switched on in Settings, Connections, MCP.": "Über den MCP-Server vo Corvus kann a KI-Glaiend a kurze Lisdn vo Befehle ausführn, die bloß was ausgebn, edwa ver, dmesg, listener oder param show. Außerdem muss Plugin-Werkzeuche under Einsdellungne, Verbindungne, MCP eigschald sei.",
+    "Through Corvus' MCP server an AI client can run any command in the shell. You are asked before each one and see the command. It is refused while the aircraft is armed. A shell can change parameters, move actuators and reboot the autopilot past the other permissions.": "Über den MCP-Server vo Corvus kann a KI-Glaiend jeden Befehl in dere Shell ausführn. Du wersd vor jedem gfragd und siehsd den Befehl. Solang des Lufdfahrzeug scharf is, werd er ablehnd. A Shell kann an die andere Rechde vorbei Baramedder ändern, Agdorn bewegn und den Audobilodn neu sdardn.",
     "WAITING": "WARTET",
     "Waiting for the vehicle": "Wartn aufs Fahrzeug",
     "{a} new line": "{a} neie Zeiln",
